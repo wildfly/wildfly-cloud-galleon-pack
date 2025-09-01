@@ -47,8 +47,10 @@ jobs:
           echo "CLOUD_FP_VERSION=${cloudVersion}" >> $GITHUB_ENV
           mkdir -p custom-cloud-image
           mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-cloud-galleon-pack/$cloudVersion
+          mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-bootable-cloud-configurator/$cloudVersion
           mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-preview-cloud-galleon-pack/$cloudVersion
           cp wildfly-cloud-galleon-pack/target/wildfly-cloud-galleon-pack-$cloudVersion.zip custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-cloud-galleon-pack/$cloudVersion
+          cp wildfly-bootable-cloud-configurator/target/wildfly-bootable-cloud-configurator-$cloudVersion.jar custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-bootable-cloud-configurator/$cloudVersion
           cp wildfly-preview-cloud-galleon-pack/target/wildfly-preview-cloud-galleon-pack-$cloudVersion.zip custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-preview-cloud-galleon-pack/$cloudVersion
           
           # Retrieve WildFly nightly tar.gz repo

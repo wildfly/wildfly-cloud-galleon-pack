@@ -27,7 +27,12 @@
     <artifactId>wildfly-cloud-galleon-pack-basic-testsuite</artifactId>
     <name>WildFly cloud feature-pack basic testsuite</name>
     <description>Simply validate that the server can be provisioned and started (with bare-metal launcher)</description>
-
+    <properties>
+      <test.exclude.package.bootable>org.wildfly.cloud.bootable.runtime</test.exclude.package.bootable>
+      <test.exclude.package.scripts>org.wildfly.cloud.launch.scripts</test.exclude.package.scripts>
+      <test.excluded.paths.bootable>modules/system/layers/base/org/wildfly/cloud</test.excluded.paths.bootable>
+      <test.excluded.paths.scripts>bin/launch,bin/openshift-launch.sh,bin/jboss-cli.sh</test.excluded.paths.scripts>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -95,6 +100,9 @@
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>wildfly-cloud-galleon-pack</artifactId>
                                     <version>${project.version}</version>
+                                    <excludedPackages>
+                                      <package>${test.exclude.package.bootable}</package>
+                                    </excludedPackages>
                                 </feature-pack>
                             </feature-packs>
                         </configuration>
@@ -175,6 +183,60 @@
                             <provisioning-dir>preview-server-legacy</provisioning-dir>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>provision-bootable-jar</id>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                        <phase>compile</phase>
+                        <configuration>
+                            <feature-packs>
+                                <feature-pack>
+                                    <groupId>org.wildfly</groupId>
+                                    <artifactId>wildfly-galleon-pack</artifactId>
+                                    <version>${version.org.wildfly}</version>
+                                </feature-pack>
+                                <feature-pack>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>wildfly-cloud-galleon-pack</artifactId>
+                                    <version>${project.version}</version>
+                                    <excludedPackages>
+                                      <package>${test.exclude.package.scripts}</package>
+                                    </excludedPackages>
+                                </feature-pack>
+                            </feature-packs>
+                            <bootable-jar>true</bootable-jar>
+                            <skipDeployment>true</skipDeployment>
+                            <provisioning-dir>server-bootable</provisioning-dir>
+                            <bootable-jar-name>server-bootable.jar</bootable-jar-name>
+                            <recordProvisioningState>true</recordProvisioningState>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>provision-bootable-preview-server</id>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                        <phase>compile</phase>
+                        <configuration>
+                            <feature-packs>
+                                <feature-pack>
+                                    <groupId>org.wildfly</groupId>
+                                    <artifactId>wildfly-preview-feature-pack</artifactId>
+                                    <version>${version.org.wildfly}</version>
+                                </feature-pack>
+                                <feature-pack>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>wildfly-cloud-galleon-pack</artifactId>
+                                    <version>${project.version}</version>
+                                </feature-pack>
+                            </feature-packs>
+                            <bootable-jar>true</bootable-jar>
+                            <bootable-jar-name>preview-server-bootable.jar</bootable-jar-name>
+                            <provisioning-dir>preview-server-bootable</provisioning-dir>
+                            <skipDeployment>true</skipDeployment>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
@@ -197,6 +259,8 @@
                         <configuration>
                             <systemPropertyVariables >
                                 <jboss.home>${basedir}/target/server</jboss.home>
+                                <test.excluded.paths>${test.excluded.paths.bootable}</test.excluded.paths>
+                                <test.expected.paths>${test.excluded.paths.scripts}</test.expected.paths>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
@@ -207,6 +271,7 @@
                         </goals>
                         <phase>test</phase>
                         <configuration>
+                          <reportNameSuffix>preview</reportNameSuffix>
                             <systemPropertyVariables>
                                 <jboss.home>${basedir}/target/preview-server</jboss.home>
                             </systemPropertyVariables>
@@ -221,6 +286,44 @@
                         <configuration>
                             <systemPropertyVariables>
                                 <jboss.home>${basedir}/target/preview-server-legacy</jboss.home>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-wildfly-bootable</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                          <reportNameSuffix>bootable</reportNameSuffix>
+                            <systemPropertyVariables>
+                                <wildfly.bootable.jar>true</wildfly.bootable.jar>
+                                <test.expected.node.name>myhost</test.expected.node.name>
+                                <jboss.args>-Djboss.node.name=myhost</jboss.args>
+                                <wildfly.bootable.jar.jar>${basedir}/target/server-bootable.jar</wildfly.bootable.jar.jar>
+                                <wildfly.bootable.jar.install.dir>${basedir}/target/server-bootable-install</wildfly.bootable.jar.install.dir>
+                                <jboss.home>${basedir}/target/server-bootable-install</jboss.home>
+                                <test.excluded.paths>${test.excluded.paths.scripts}</test.excluded.paths>
+                                <test.expected.paths>${test.excluded.paths.bootable}</test.expected.paths>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-wildfly-preview-bootable</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                          <reportNameSuffix>preview-bootable</reportNameSuffix>
+                            <systemPropertyVariables>
+                                <wildfly.bootable.jar>true</wildfly.bootable.jar>
+                                <test.expected.node.name>myhost</test.expected.node.name>
+                                <jboss.args>-Djboss.node.name=myhost</jboss.args>
+                                <wildfly.bootable.jar.jar>${basedir}/target/preview-server-bootable.jar</wildfly.bootable.jar.jar>
+                                <wildfly.bootable.jar.install.dir>${basedir}/target/preview-server-bootable-install</wildfly.bootable.jar.install.dir>
+                                <jboss.home>${basedir}/target/preview-server-bootable-install</jboss.home>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
