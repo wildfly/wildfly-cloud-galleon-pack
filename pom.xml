@@ -44,9 +44,9 @@
         <version.junit>4.13.2</version.junit>
         <wildfly.cekit.modules.fork>wildfly</wildfly.cekit.modules.fork>
         <wildfly.cekit.modules.tag>main</wildfly.cekit.modules.tag>
-        <version.org.wildfly>38.0.0.Final</version.org.wildfly>
-        <version.org.wildfly.core>30.0.0.Final</version.org.wildfly.core>
-        <version.org.wildfly.galleon-plugins>8.0.1.Final</version.org.wildfly.galleon-plugins>
+        <version.org.wildfly>39.0.0.Final</version.org.wildfly>
+        <version.org.wildfly.core>31.0.0.Final</version.org.wildfly.core>
+        <version.org.wildfly.galleon-plugins>8.1.0.Final</version.org.wildfly.galleon-plugins>
         <version.org.wildfly.maven.plugin>5.1.4.Final</version.org.wildfly.maven.plugin>
         
         <wildfly.repo.scm.connection>git@github.com:wildfly/wildfly-cloud-galleon-pack.git</wildfly.repo.scm.connection>

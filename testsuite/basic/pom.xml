@@ -145,11 +145,34 @@
                                 </feature-pack>
                                 <feature-pack>
                                     <groupId>${project.groupId}</groupId>
-                                    <artifactId>wildfly-preview-cloud-galleon-pack</artifactId>
+                                    <artifactId>wildfly-cloud-galleon-pack</artifactId>
                                     <version>${project.version}</version>
                                 </feature-pack>
                             </feature-packs>
                             <provisioning-dir>preview-server</provisioning-dir>
+                        </configuration>
+                    </execution>
+                    <!-- legacy -->
+                    <execution>
+                        <id>provision-preview-server-legacy</id>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                        <phase>compile</phase>
+                        <configuration>
+                            <feature-packs>
+                                <feature-pack>
+                                    <groupId>org.wildfly</groupId>
+                                    <artifactId>wildfly-preview-feature-pack</artifactId>
+                                    <version>${version.org.wildfly}</version>
+                                </feature-pack>
+                                <feature-pack>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>wildfly-preview-cloud-galleon-pack</artifactId>
+                                    <version>${project.version}</version>
+                                </feature-pack>
+                            </feature-packs>
+                            <provisioning-dir>preview-server-legacy</provisioning-dir>
                         </configuration>
                     </execution>
                 </executions>
@@ -186,6 +209,18 @@
                         <configuration>
                             <systemPropertyVariables>
                                 <jboss.home>${basedir}/target/preview-server</jboss.home>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-wildfly-preview-legacy</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <jboss.home>${basedir}/target/preview-server-legacy</jboss.home>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
