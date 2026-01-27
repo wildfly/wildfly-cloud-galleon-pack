@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.wildfly.cloud</groupId>
         <artifactId>wildfly-cloud-galleon-pack-parent</artifactId>
-        <version>8.2.0.Final-SNAPSHOT</version>
+        <version>8.2.0.Final</version>
     </parent>
     <artifactId>wildfly-cloud-galleon-pack</artifactId>
     <packaging>pom</packaging>
