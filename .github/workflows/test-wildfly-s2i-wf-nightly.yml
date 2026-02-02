@@ -1,0 +1,158 @@
+name: Wildfly Cloud Galleon feature-pack - Test WildFly s2i image with latest WildFly. 
+on:
+  schedule:
+    - cron: "0 0 * * *"
+env:
+  LANG: en_US.UTF-8
+  S2I_URI: https://github.com/openshift/source-to-image/releases/download/v1.3.1/source-to-image-v1.3.1-a5a77147-linux-amd64.tar.gz
+jobs:
+  wfci:
+    name: Wildfly-s2i Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        java: ['17']
+    steps:
+      - uses: actions/checkout@v2
+        with:
+            path: wildfly-cloud
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+          distribution: 'temurin'
+      - uses: wildfly-extras/wildfly-nightly-download@v1
+        id: wildfly-nightly
+      - name: Update hosts - linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cat /etc/hosts
+          sudo bash -c "echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' > /etc/hosts"
+          sudo bash -c "echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> /etc/hosts"
+          sudo sysctl -w fs.file-max=2097152
+      - uses: actions/checkout@v2
+        with:
+            repository: wildfly/wildfly-s2i
+            path: wildfly-s2i
+      - uses: n1hility/cancel-previous-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cloud FP
+        run: |
+          mvn clean install -DskipTests -Dversion.org.wildfly=${{steps.wildfly-nightly.outputs.wildfly-version}}
+          cloudVersion=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "CLOUD_FP_VERSION=${cloudVersion}" >> $GITHUB_ENV
+          mkdir -p custom-cloud-image
+          mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-cloud-galleon-pack/$cloudVersion
+          mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-preview-cloud-galleon-pack/$cloudVersion
+          cp wildfly-cloud-galleon-pack/target/wildfly-cloud-galleon-pack-$cloudVersion.zip custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-cloud-galleon-pack/$cloudVersion
+          cp wildfly-preview-cloud-galleon-pack/target/wildfly-preview-cloud-galleon-pack-$cloudVersion.zip custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-preview-cloud-galleon-pack/$cloudVersion
+          
+          # Retrieve WildFly nightly tar.gz repo
+          mkdir -p wf-tmp/repo;cd wf-tmp/repo
+          wget -q https://ci.wildfly.org/guestAuth/repository/download/WF_Nightly/latest.lastSuccessful/wildfly-maven-repository.tar.gz
+          cd ..;tar xvf repo/wildfly-maven-repository.tar.gz
+          tar xvf wildfly-maven-repository.tar.gz
+          rm wildfly-maven-repository.tar.gz;rm -rf repo
+          cd ..
+          cp -r wf-tmp/* custom-cloud-image/docker/repository/
+          docker_file=custom-cloud-image/docker/Dockerfile
+            cat <<EOF > $docker_file
+             FROM quay.io/wildfly/wildfly-s2i:latest
+             RUN mkdir -p /tmp/artifacts/m2
+             COPY --chown=jboss:root repository /tmp/artifacts/m2
+          EOF
+        working-directory: wildfly-cloud
+      - name: Setup required system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install krb5-multidev libkrb5-dev
+      - name: Setup Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Setup virtualenv and install cekit and required packages
+        run: |
+          python --version
+          sudo pip install virtualenv
+          mkdir ~/cekit
+          python3 -m venv ~/cekit
+          . ~/cekit/bin/activate
+          pip install cekit docker docker-squash odcs behave lxml 
+      - name: install s2i binary
+        run: |
+          echo ===== Installing s2i from ${{ env.S2I_URL }} =====
+          mkdir /tmp/s2i/ && cd /tmp/s2i/
+          wget ${{ env.S2I_URI }} 
+           tar xvf source-to-image*.gz
+           sudo mv s2i /usr/bin
+           which s2i
+           s2i version
+      - name: Test extended image containing custom WildFly cloud feature-pack
+        run: |
+          docker build -t wildfly/wildfly-s2i:dev-${{ env.CLOUD_FP_VERSION }} ./custom-cloud-image/docker
+          cp -r ../wildfly-s2i/wildfly-builder-image ./custom-cloud-image
+          cp -r ../wildfly-s2i/wildfly-modules ./custom-cloud-image
+          comment="### PLACEHOLDER FOR CLOUD CUSTOM TESTING ###"
+          replacement="\|MAVEN_ARGS_APPEND\|-Dversion.wildfly.cloud.galleon.pack=${{ env.CLOUD_FP_VERSION }} -Dversion.wildfly=${{steps.wildfly-nightly.outputs.wildfly-version}}\|"
+          legacyReplacement="org.wildfly.cloud:wildfly-cloud-galleon-pack:${{ env.CLOUD_FP_VERSION }}\|"
+          legacyPlaceHolder="org.wildfly.cloud:wildfly-cloud-galleon-pack:.*\|"
+          legacyReplacementWF="org.wildfly:wildfly-galleon-pack:${{steps.wildfly-nightly.outputs.wildfly-version}},"
+          legacyPlaceHolderWF="org.wildfly:wildfly-galleon-pack:.*,"
+          for feature in custom-cloud-image/wildfly-builder-image/tests/features/*.feature; do
+            sed -i "s|$comment|$replacement|" "$feature"
+            sed -i "s|$legacyPlaceHolder|$legacyReplacement|" "$feature"
+            sed -i "s|$legacyPlaceHolderWF|$legacyReplacementWF|" "$feature"
+          done
+          . ~/cekit/bin/activate
+          pushd custom-cloud-image/
+          mkdir -p all-tests
+          mv wildfly-builder-image/tests/features/*.feature all-tests
+          for feature in all-tests/*.feature; do
+            cp $feature wildfly-builder-image/tests/features/
+            pushd wildfly-builder-image
+              fileName=$(basename ${feature})
+              echo "Testing feature file $fileName"
+              cekit test --image=wildfly/wildfly-s2i:dev-${{ env.CLOUD_FP_VERSION }} behave > test-logs-$fileName.txt 2>&1
+              rm test-logs-$fileName.txt
+              docker system prune -f
+            popd
+            rm wildfly-builder-image/tests/features/*.feature
+            echo "Done testing ${feature}"
+          done
+          popd
+        working-directory: wildfly-cloud
+      - name: Advertise Failing Behave Scenarios
+        if: failure()
+        run: |
+          cd custom-cloud-image/wildfly-builder-image
+          logFile=$(find . -type f -iname "test-logs-*.txt")
+          if [ -f "${logFile}" ]; then
+            # Remove tar noise
+            grep -v "tar.go:" ${logFile} > tmpFile && mv tmpFile ${logFile}
+            # Display failing scenario
+            grep -A10000 "Errored scenarios" ${logFile}
+          else
+            echo "No failure in behave tests"
+          fi
+        working-directory: wildfly-cloud
+      - name: Upload Test Reports on Failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: wildfly-s2i-test-logs
+          path: |
+           wildfly-cloud/custom-cloud-image/wildfly-builder-image/test-logs-*.txt
+           /tmp/*.wfs2i.log
+      - name: List containers
+        if: failure()
+        run: |
+            echo === RUNNING CONTAINERS ===
+            docker container ls
+            echo === RUNNING PROCESSES ===
+            top -b -n1
+            echo === DISK USAGE ===
+             df -h
