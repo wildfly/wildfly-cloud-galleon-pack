@@ -37,9 +37,6 @@ jobs:
         with:
             repository: wildfly/wildfly-s2i
             path: wildfly-s2i
-      - uses: n1hility/cancel-previous-runs@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build cloud FP
         run: |
           mvn clean install -DskipTests -Dversion.org.wildfly=${{steps.wildfly-nightly.outputs.wildfly-version}}
