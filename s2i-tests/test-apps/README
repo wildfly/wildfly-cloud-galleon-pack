@@ -1,0 +1,11 @@
+# WildFly S2I to produce a WildFly server image
+
+s2i build . quay.io/wildfly/wildfly-s2i:latest helloworld-app
+
+podman run -p8080:8080 helloworld-app
+
+# OpenJDK S2I to produce a bootable JAR image
+
+s2i build --env MAVEN_ARGS_APPEND="-Dwildfly.bootable.jar=true" . registry.access.redhat.com/ubi9/openjdk-21:latest helloworld-bootable-app
+
+podman run -p8080:8080 helloworld-bootable-app

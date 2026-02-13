@@ -1,0 +1,110 @@
+name: Wildfly Cloud Galleon feature-pack nightly - Test OpenJDK S2I bootable JAR build with latest WildFly SNAPSHOT. 
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  push:
+    branches:
+      - 'main'
+env:
+  LANG: en_US.UTF-8
+  S2I_URI: https://github.com/openshift/source-to-image/releases/download/v1.3.1/source-to-image-v1.3.1-a5a77147-linux-amd64.tar.gz
+jobs:
+  wfci:
+    name: OpenJDK S2I Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        java: ['21']
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update hosts - linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cat /etc/hosts
+          sudo bash -c "echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' > /etc/hosts"
+          sudo bash -c "echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> /etc/hosts"
+          sudo sysctl -w fs.file-max=2097152
+      - uses: n1hility/cancel-previous-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: wildfly-extras/wildfly-nightly-download@v1
+        id: wildfly-nightly
+      - name: Setup required system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install krb5-multidev libkrb5-dev
+      - name: Setup Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: install s2i binary
+        run: |
+          echo ===== Installing s2i from ${{ env.S2I_URL }} =====
+          mkdir /tmp/s2i/ && cd /tmp/s2i/
+          wget ${{ env.S2I_URI }} 
+           tar xvf source-to-image*.gz
+           sudo mv s2i /usr/bin
+           which s2i
+           s2i version
+      - name: Build cloud FP and docker image
+        run: |
+          mvn clean install -DskipTests -Dversion.org.wildfly=${{steps.wildfly-nightly.outputs.wildfly-version}}
+          cloudVersion=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "CLOUD_FP_VERSION=${cloudVersion}" >> $GITHUB_ENV
+          mkdir -p custom-cloud-image
+          mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-cloud-galleon-pack/$cloudVersion
+          mkdir -p custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-bootable-cloud-configurator/$cloudVersion
+          cp wildfly-cloud-galleon-pack/target/wildfly-cloud-galleon-pack-$cloudVersion.zip custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-cloud-galleon-pack/$cloudVersion
+          cp wildfly-bootable-cloud-configurator/target/wildfly-bootable-cloud-configurator-$cloudVersion.jar custom-cloud-image/docker/repository/org/wildfly/cloud/wildfly-bootable-cloud-configurator/$cloudVersion
+
+          # Retrieve WildFly nightly tar.gz repo
+          mkdir -p wf-tmp/repo;cd wf-tmp/repo
+          wget -q https://ci.wildfly.org/guestAuth/repository/download/WF_Nightly/latest.lastSuccessful/wildfly-maven-repository.tar.gz
+          cd ..;tar xvf repo/wildfly-maven-repository.tar.gz
+          tar xvf wildfly-maven-repository.tar.gz
+          rm wildfly-maven-repository.tar.gz;rm -rf repo
+          cd ..
+          cp -r wf-tmp/* custom-cloud-image/docker/repository/
+
+          docker_file=custom-cloud-image/docker/Dockerfile
+            cat <<EOF > $docker_file
+             FROM registry.access.redhat.com/ubi9/openjdk-${{ matrix.java }}:latest
+             RUN mkdir -p /tmp/artifacts/m2
+             COPY --chown=default:root repository /tmp/artifacts/m2
+          EOF
+
+          docker build -t wildfly/openjdk-s2i:dev-$cloudVersion ./custom-cloud-image/docker
+      - name: Test OpenJDK S2I to build bootable JAR
+        run: |
+          s2i build --env MAVEN_ARGS_APPEND="-Dwildfly.bootable.jar=true -Dversion.server=${{steps.wildfly-nightly.outputs.wildfly-version}} -Dversion.wildfly.cloud.galleon.pack=${{ env.CLOUD_FP_VERSION }}" ./s2i-tests/test-apps/helloworld wildfly/openjdk-s2i:dev-${{ env.CLOUD_FP_VERSION }} wildfly/helloworld-bootable-app
+          cid=$(docker run --detach -p8080:8080 wildfly/helloworld-bootable-app)
+          echo "Started container with ID $cid"
+          max_attempts=30
+          sleep_time=1
+          attempt=1
+          result=1
+          url=127.0.0.1:8080/helloworld/HelloWorld
+          while [ $attempt -le $max_attempts ]; do
+            echo "Sending GET request to $url"
+            set +e
+            response_code=$(curl -s -w %{http_code} -o /dev/null $url)
+            status=$?
+            set -e
+            if [ $status -eq 0 ]; then
+              if [ $response_code -eq 200 ]; then
+                result=0
+              fi
+              break
+            fi
+            attempt=$(( $attempt + 1 ))
+            sleep $sleep_time
+          done
+          if [ $result -eq 0 ]; then
+            echo "GET request succeeded"
+          else
+            echo "GET request failed with code $response_code"
+          fi
+          docker kill $cid
+          exit $result
