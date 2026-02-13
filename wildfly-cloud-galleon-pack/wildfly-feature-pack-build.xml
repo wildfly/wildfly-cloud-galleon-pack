@@ -21,9 +21,13 @@
   -->
 
 <build xmlns="urn:wildfly:feature-pack-build:3.5" producer="org.wildfly.cloud:wildfly-cloud-galleon-pack">
-
+    <transitive>
+        <dependency group-id="org.wildfly" artifact-id="wildfly-ee-galleon-pack" allowedFamily="wildfly:jakarta-ee-10+">
+            <name>org.wildfly:wildfly-ee-galleon-pack</name>
+        </dependency>
+    </transitive>
     <dependencies>
-        <dependency group-id="org.wildfly" artifact-id="wildfly-galleon-pack" allowedFamily="wildfly:jakarta-ee-10+,microprofile-7.1+">
+        <dependency group-id="org.wildfly" artifact-id="wildfly-galleon-pack" allowedFamily="wildfly:microprofile-7.1+">
             <name>org.wildfly:wildfly-galleon-pack</name>
             <packages inherit="true"/>
             <default-configs inherit="false"/>

@@ -36,6 +36,17 @@
             <type>pom</type>
         </dependency>
         <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>wildfly-bootable-cloud-configurator</artifactId>
+          <type>jar</type>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.wildfly</groupId>
             <artifactId>wildfly-preview-feature-pack</artifactId>
             <type>zip</type>

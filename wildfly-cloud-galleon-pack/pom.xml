@@ -36,8 +36,24 @@
             <type>pom</type>
         </dependency>
         <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>wildfly-bootable-cloud-configurator</artifactId>
+          <type>jar</type>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.wildfly</groupId>
             <artifactId>wildfly-galleon-pack</artifactId>
+            <type>zip</type>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-ee-galleon-pack</artifactId>
             <type>zip</type>
         </dependency>
     </dependencies>
