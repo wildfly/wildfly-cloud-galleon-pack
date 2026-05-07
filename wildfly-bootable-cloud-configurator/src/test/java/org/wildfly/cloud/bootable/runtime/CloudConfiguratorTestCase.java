@@ -24,7 +24,7 @@ public class CloudConfiguratorTestCase {
         Path p = Files.createTempDirectory("cloud-ext-test");
         p.toFile().deleteOnExit();
         List<String> args = extension.doBoot(Collections.emptyList(), p, "abcdefghijklmnopqrstvuwxyz");
-        assertTrue(args.size() == 2);
+        assertTrue(args.size() == 3);
         assertTrue(args.toString(), "-Djboss.node.name=abcdefghijklmnopqrstvuwxyz".equals(args.get(0)));
         assertTrue(args.toString(), "-Djboss.tx.node.id=defghijklmnopqrstvuwxyz".equals(args.get(1)));
     }
@@ -35,7 +35,7 @@ public class CloudConfiguratorTestCase {
         Path p = Files.createTempDirectory("cloud-ext-test");
         p.toFile().deleteOnExit();
         List<String> args = extension.doBoot(Collections.emptyList(), p, "abcdefghijklmnopqrstvuw");
-        assertTrue(args.size() == 2);
+        assertTrue(args.size() == 3);
         assertTrue(args.toString(), "-Djboss.node.name=abcdefghijklmnopqrstvuw".equals(args.get(0)));
         assertTrue(args.toString(), "-Djboss.tx.node.id=abcdefghijklmnopqrstvuw".equals(args.get(1)));
     }
@@ -46,7 +46,7 @@ public class CloudConfiguratorTestCase {
         Path p = Files.createTempDirectory("cloud-ext-test");
         p.toFile().deleteOnExit();
         List<String> args = extension.doBoot(Collections.emptyList(), p, "a");
-        assertTrue(args.size() == 2);
+        assertTrue(args.size() == 3);
         assertTrue(args.toString(), "-Djboss.node.name=a".equals(args.get(0)));
         assertTrue(args.toString(), "-Djboss.tx.node.id=a".equals(args.get(1)));
     }
@@ -59,7 +59,7 @@ public class CloudConfiguratorTestCase {
         List<String> args = new ArrayList<>();
         args.add("-Djboss.node.name=foo");
         List<String> args2 = extension.doBoot(args, p, "abcdef");
-        assertTrue(args2.size() == 1);
+        assertTrue(args2.size() == 2);
         assertTrue(args2.toString(), "-Djboss.tx.node.id=foo".equals(args2.get(0)));
     }
 
@@ -71,7 +71,7 @@ public class CloudConfiguratorTestCase {
         System.setProperty("jboss.node.name", "foo");
         try {
             List<String> args = extension.doBoot(Collections.emptyList(), p, "abcdef");
-            assertTrue(args.size() == 1);
+            assertTrue(args.size() == 2);
             assertTrue(args.toString(), "-Djboss.tx.node.id=foo".equals(args.get(0)));
         } finally {
             System.clearProperty("jboss.node.name");
@@ -86,8 +86,40 @@ public class CloudConfiguratorTestCase {
         List<String> args = new ArrayList<>();
         args.add("-Dfoo.bar=fromtest");
         List<String> args2 = extension.doBoot(args, p, "abcdef");
-        assertTrue(args2.size() == 2);
+        assertTrue(args2.size() == 3);
         assertTrue(args2.toString(), "-Djboss.node.name=abcdef".equals(args2.get(0)));
         assertTrue(args2.toString(), "-Djboss.tx.node.id=abcdef".equals(args2.get(1)));
+    }
+
+    @Test
+    public void test7() throws Exception {
+        CloudConfigurator extension = new CloudConfigurator();
+        Path p = Files.createTempDirectory("cloud-ext-test");
+        p.toFile().deleteOnExit();
+        List<String> args = extension.doBoot(Collections.emptyList(), p, null);
+        assertTrue(args.size() == 1);
+        assertTrue(args.toString(), "-Djboss.bind.address.management=0.0.0.0".equals(args.get(0)));
+    }
+
+    @Test
+    public void test8() throws Exception {
+        CloudConfigurator extension = new CloudConfigurator();
+        Path p = Files.createTempDirectory("cloud-ext-test");
+        p.toFile().deleteOnExit();
+        List<String> inputArgs = new ArrayList<>();
+        inputArgs.add("-bmanagement=fromtest");
+        List<String> args = extension.doBoot(inputArgs, p, null);
+        assertTrue(args.size() == 0);
+    }
+
+    @Test
+    public void test9() throws Exception {
+        CloudConfigurator extension = new CloudConfigurator();
+        Path p = Files.createTempDirectory("cloud-ext-test");
+        p.toFile().deleteOnExit();
+        List<String> inputArgs = new ArrayList<>();
+        inputArgs.add("-Djboss.bind.address.management=fromtest");
+        List<String> args = extension.doBoot(inputArgs, p, null);
+        assertTrue(args.size() == 0);
     }
 }
