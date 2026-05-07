@@ -63,7 +63,7 @@ jobs:
       - name: Test OpenJDK S2I to build bootable JAR
         run: |
           s2i build --env MAVEN_ARGS_APPEND="-Dwildfly.bootable.jar=true -Dversion.wildfly.cloud.galleon.pack=${{ env.CLOUD_FP_VERSION }}" ./s2i-tests/test-apps/helloworld wildfly/openjdk-s2i:dev-${{ env.CLOUD_FP_VERSION }} wildfly/helloworld-bootable-app
-          cid=$(docker run --detach -p8080:8080 wildfly/helloworld-bootable-app)
+          cid=$(docker run --detach -p8080:8080 -p 9990:9990 wildfly/helloworld-bootable-app)
           echo "Started container with ID $cid"
           max_attempts=30
           sleep_time=1
@@ -89,6 +89,30 @@ jobs:
             echo "GET request succeeded"
           else
             echo "GET request failed with code $response_code"
+          fi
+          # Management interface access
+          attempt=1
+          result=1
+          url=127.0.0.1:9990/health
+          while [ $attempt -le $max_attempts ]; do
+            echo "Sending GET request to $url"
+            set +e
+            response_code=$(curl -s -w %{http_code} -o /dev/null $url)
+            status=$?
+            set -e
+            if [ $status -eq 0 ]; then
+              if [ $response_code -eq 200 ]; then
+                result=0
+              fi
+              break
+            fi
+            attempt=$(( $attempt + 1 ))
+            sleep $sleep_time
+          done
+          if [ $result -eq 0 ]; then
+            echo "GET request to management interface succeeded"
+          else
+            echo "GET request to management interface failed with code $response_code"
           fi
           docker kill $cid
           exit $result
