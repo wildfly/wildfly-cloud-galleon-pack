@@ -35,9 +35,13 @@ public class CloudConfigurator implements BootableServerConfigurator {
         List<String> extraArguments = doBoot(args, installDir, hostname);
         // Handle JGroup.
         String passwordEnv = System.getenv("JGROUPS_CLUSTER_PASSWORD");
+        List<String> allCmds = new ArrayList<>();
         List<String> cmds = JGroupsUtil.getProtocolCommands(installDir.resolve("standalone").
                     resolve("configuration").resolve("standalone.xml"), passwordEnv != null);
-        return new Configuration(extraArguments, cmds);
+        allCmds.addAll(cmds);
+        // Port offset, the cloud FP sets it to 0, required by s2i launch port-offset script.
+        allCmds.add("/socket-binding-group=standard-sockets:write-attribute(name=port-offset, value=\"${jboss.socket.binding.port-offset:0}\")");
+        return new Configuration(extraArguments, allCmds);
     }
 
     List<String> doBoot(List<String> args, Path installDir, String hostname) throws Exception {
