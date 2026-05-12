@@ -115,6 +115,14 @@ public class SimpleTestCase {
                 Path modulePath = install.resolve("modules/system/layers/base/" + module.replaceAll("\\.", "/"));
                 assertTrue(Files.exists(modulePath));
             }
+            // Check that the port offset is set
+            final ModelNode opset = new ModelNode();
+            opset.get("operation").set("read-attribute");
+            opset.get("name").set("port-offset");
+            opset.get("resolve-expressions").set("true");
+            opset.get("address").set("/socket-binding-group=standard-sockets");
+            ModelNode resSet = client.execute(opset);
+            assertEquals(resSet.asString(), "1", resSet.get("result").asString());
         }
     }
 }
