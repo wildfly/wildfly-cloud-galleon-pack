@@ -23,6 +23,8 @@ public class CloudConfigurator implements BootableServerConfigurator {
     private static final String JBOSS_NODE_NAME_PROPERTY = "jboss.node.name";
     private static final String JBOSS_TX_NODE_ID_PROPERTY = "jboss.tx.node.id";
     private static final String JBOSS_MANAGEMENT_BIND_ADDRESS = "jboss.bind.address.management";
+    private static final String JBOSS_PRIVATE_BIND_ADDRESS = "jboss.bind.address.private";
+    private static final String JBOSS_PUBLIC_BIND_ADDRESS = "jboss.bind.address";
     private static final String ALL_INTERFACES = "0.0.0.0";
     private static final Path TMP_DIR = Paths.get("/tmp");
     private static final Path JBOSS_CONTAINER_BOOTABLE_DIR = TMP_DIR.resolve("wildfly-bootable-jar");
@@ -63,6 +65,8 @@ public class CloudConfigurator implements BootableServerConfigurator {
 
         String nodeName = null;
         boolean itfSet = false;
+        boolean privateSet = false;
+        boolean publicSet = false;
         for (String arg : args) {
             if (arg.startsWith("-D" + JBOSS_NODE_NAME_PROPERTY + "=")) {
                 int eq = arg.indexOf("=");
@@ -70,7 +74,11 @@ public class CloudConfigurator implements BootableServerConfigurator {
             } else {
                 if (arg.startsWith("-D" + JBOSS_MANAGEMENT_BIND_ADDRESS + "=" ) || arg.startsWith("-bmanagement=")) {
                     itfSet = true;
-                }
+                } else if (arg.startsWith("-D" + JBOSS_PRIVATE_BIND_ADDRESS + "=" ) || arg.startsWith("-bprivate=")) {
+                    privateSet = true;
+                } else if (arg.startsWith("-D" + JBOSS_PUBLIC_BIND_ADDRESS + "=" ) || arg.startsWith("-b=")) {
+                    publicSet = true;
+                } 
             }
         }
         List<String> extraArguments = new ArrayList<>();
@@ -96,6 +104,14 @@ public class CloudConfigurator implements BootableServerConfigurator {
         if (!itfSet) {
             // Management interface always listen on all interfaces
             extraArguments.add("-D" + JBOSS_MANAGEMENT_BIND_ADDRESS + "=" + ALL_INTERFACES);
+        }
+        if (hostname != null) {
+            if (!publicSet) {
+                extraArguments.add("-D" + JBOSS_PUBLIC_BIND_ADDRESS + "=" + hostname);
+            }
+            if (!privateSet) {
+                extraArguments.add("-D" + JBOSS_PRIVATE_BIND_ADDRESS + "=" + hostname);
+            }
         }
         return extraArguments;
     }

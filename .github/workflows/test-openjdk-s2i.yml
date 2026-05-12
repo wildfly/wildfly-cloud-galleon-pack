@@ -63,8 +63,12 @@ jobs:
       - name: Test OpenJDK S2I to build bootable JAR
         run: |
           s2i build --env MAVEN_ARGS_APPEND="-Dwildfly.bootable.jar=true -Dversion.wildfly.cloud.galleon.pack=${{ env.CLOUD_FP_VERSION }}" ./s2i-tests/test-apps/helloworld wildfly/openjdk-s2i:dev-${{ env.CLOUD_FP_VERSION }} wildfly/helloworld-bootable-app
-          cid=$(docker run --detach -p8080:8080 -p 9990:9990 wildfly/helloworld-bootable-app)
+          cid=$(docker run --name server --detach -p8080:8080 -p 9990:9990 wildfly/helloworld-bootable-app)
           echo "Started container with ID $cid"
+          echo "sleep 5 seconds then print logs"
+          sleep 5
+          docker logs server
+          echo "Accessing the server"
           max_attempts=30
           sleep_time=1
           attempt=1
