@@ -4,6 +4,7 @@
  */
 package org.wildfly.cloud.bootable.runtime;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +12,16 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.wildfly.core.jar.runtime.BootableServerConfigurator;
 import org.wildfly.core.jar.runtime.Configuration;
 /**
@@ -29,6 +40,10 @@ public class CloudConfigurator implements BootableServerConfigurator {
     private static final Path TMP_DIR = Paths.get("/tmp");
     private static final Path JBOSS_CONTAINER_BOOTABLE_DIR = TMP_DIR.resolve("wildfly-bootable-jar");
     private static final Path INSTALL_DIR_FILE = JBOSS_CONTAINER_BOOTABLE_DIR.resolve("install-dir");
+    private static final String SOCKET_BINDING_GROUP = "socket-binding-group";
+    private static final String STANDALONE_CONFIG = "standalone.xml";
+    private static final String STANDALONE = "standalone";
+    private static final String CONFIGURATION = "configuration";
 
     @Override
     public Configuration configure(List<String> args, Path installDir) throws Exception {
@@ -42,7 +57,8 @@ public class CloudConfigurator implements BootableServerConfigurator {
                     resolve("configuration").resolve("standalone.xml"), passwordEnv != null);
         allCmds.addAll(cmds);
         // Port offset, the cloud FP sets it to 0, required by s2i launch port-offset script.
-        allCmds.add("/socket-binding-group=standard-sockets:write-attribute(name=port-offset, value=\"${jboss.socket.binding.port-offset:0}\")");
+        Path config = installDir.resolve(STANDALONE).resolve(CONFIGURATION).resolve(STANDALONE_CONFIG);
+        updatePortOffsetConfig(config);
         return new Configuration(extraArguments, allCmds);
     }
 
@@ -132,5 +148,32 @@ public class CloudConfigurator implements BootableServerConfigurator {
                     + value + " from the original value " + originalValue);
         }
         return value;
+    }
+
+    private static void updatePortOffsetConfig(Path configFile) throws Exception {
+        try (FileInputStream fileInputStream = new FileInputStream(configFile.toFile())) {
+            DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
+            Document document = documentBuilder.parse(fileInputStream);
+            Element root = document.getDocumentElement();
+
+            NodeList lst = root.getChildNodes();
+            for (int i = 0; i < lst.getLength(); i++) {
+                Node n = lst.item(i);
+                if (n instanceof Element) {
+                    if (SOCKET_BINDING_GROUP.equals(n.getNodeName())) {
+                        Element e = (Element) n;
+                        e.setAttribute("port-offset", "${jboss.socket.binding.port-offset:0}");
+                        break;
+                    }
+                }
+            }
+            TransformerFactory instance = TransformerFactory.newInstance();
+            Transformer transformer = instance.newTransformer();
+            StreamResult output = new StreamResult(configFile.toFile());
+            DOMSource input = new DOMSource(document);
+
+            transformer.transform(input, output);
+        }
     }
 }
