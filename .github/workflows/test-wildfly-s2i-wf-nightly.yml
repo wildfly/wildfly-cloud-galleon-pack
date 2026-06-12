@@ -111,7 +111,7 @@ jobs:
             sed -i "s|$comment|$replacement|" "$feature"
             sed -i "s|$legacyPlaceHolder|$legacyReplacement|" "$feature"
             sed -i "s|$legacyPlaceHolderWF|$legacyReplacementWF|" "$feature"
-            sed -i "s|$lelytronOidcNSPlaceHolder|$elytronOidcNSReplacement|" "$feature"
+            sed -i "s|$elytronOidcNSPlaceHolder|$elytronOidcNSReplacement|" "$feature"
           done
           . ~/cekit/bin/activate
           pushd custom-cloud-image/
